@@ -21,13 +21,27 @@ static void merge_ip_tables(GlobalResult *gr, const ThreadResult *tr)
         int         count = tr->top_ips[i].count;
         int         found = 0;
         for (int j = 0; j < gr->ip_count; j++) {
-            if (strcmp(gr->ip_table[j].ip, ip) == 0) { gr->ip_table[j].count += count; found = 1; break; }
+            if (strcmp(gr->ip_table[j].ip, ip) == 0) {
+                gr->ip_table[j].count += count;
+                found = 1;
+                break;
+            }
         }
         if (!found && gr->ip_count < MAX_IP_ENTRIES) {
             strncpy(gr->ip_table[gr->ip_count].ip, ip, 45);
             gr->ip_table[gr->ip_count].count = count;
             gr->ip_count++;
         }
+    }
+}
+
+static void flag_anomalies(GlobalResult *gr)
+{
+    for (int i = 0; i < gr->ip_count; i++) {
+        if (gr->ip_table[i].count > ANOMALY_THRESHOLD)
+            gr->ip_table[i].is_anomaly = 1;
+        else
+            gr->ip_table[i].is_anomaly = 0;
     }
 }
 
@@ -38,6 +52,10 @@ void merge_thread_result(GlobalResult *gr, const ThreadResult *tr)
     gr->total_warnings += tr->warn_count;
     gr->total_info     += tr->info_count;
     gr->total_lines    += tr->lines_processed;
+    gr->total_2xx      += tr->status_2xx;
+    gr->total_4xx      += tr->status_4xx;
+    gr->total_5xx      += tr->status_5xx;
     merge_ip_tables(gr, tr);
+    flag_anomalies(gr);
     pthread_mutex_unlock(&gr->lock);
 }

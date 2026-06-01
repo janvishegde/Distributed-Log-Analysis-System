@@ -25,14 +25,40 @@ int write_json(const GlobalResult *gr, const char *path)
     fprintf(fp, "  \"total_errors\":   %ld,\n", gr->total_errors);
     fprintf(fp, "  \"total_warnings\": %ld,\n", gr->total_warnings);
     fprintf(fp, "  \"total_info\":     %ld,\n", gr->total_info);
+    fprintf(fp, "  \"status_2xx\":     %ld,\n", gr->total_2xx);
+    fprintf(fp, "  \"status_4xx\":     %ld,\n", gr->total_4xx);
+    fprintf(fp, "  \"status_5xx\":     %ld,\n", gr->total_5xx);
+
+    /* Anomaly summary */
+    int anomaly_count = 0;
+    for (int i = 0; i < n; i++)
+        if (sorted[i].is_anomaly) anomaly_count++;
+
+    fprintf(fp, "  \"anomaly_count\":  %d,\n", anomaly_count);
     fprintf(fp, "  \"ip_frequency\": [\n");
     for (int i = 0; i < n; i++) {
-        fprintf(fp, "    { \"ip\": \"%s\", \"count\": %d }%s\n",
-                sorted[i].ip, sorted[i].count, (i < n-1) ? "," : "");
+        fprintf(fp, "    { \"ip\": \"%s\", \"count\": %d, \"anomaly\": %s }%s\n",
+                sorted[i].ip,
+                sorted[i].count,
+                sorted[i].is_anomaly ? "true" : "false",
+                (i < n-1) ? "," : "");
     }
     fprintf(fp, "  ]\n}\n");
 
     fclose(fp);
+
+    /* Print anomaly warning to terminal */
     printf("[output] Results written to '%s'\n", path);
+    if (anomaly_count > 0) {
+        printf("\n⚠️  ANOMALY ALERT — %d suspicious IPs exceeded %d requests:\n",
+               anomaly_count, ANOMALY_THRESHOLD);
+        for (int i = 0; i < n; i++) {
+            if (sorted[i].is_anomaly)
+                printf("   🚨 %s — %d requests\n", sorted[i].ip, sorted[i].count);
+        }
+    } else {
+        printf("[output] No anomalies detected.\n");
+    }
+
     return 0;
 }
